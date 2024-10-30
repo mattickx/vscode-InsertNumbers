@@ -1,204 +1,136 @@
-/////<reference path="./sprintf.js" />
-
 'use strict';
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
+
 import * as vscode from 'vscode';
 import { TSSprintf } from './TSSprintf';
 
-
-interface IInsertSettngs
-{
-    formatStr : string;
-    start : number;
-    step : number;
+interface IInsertSettings {
+  formatStr: string;
+  start: number;
+  step: number;
 }
 
-/**
- * InsertSettngs
- */
-export class InsertSettngs implements IInsertSettngs
-{
-    
-    public formatStr : string;
-    public start : number;
-    public step : number;
-    
-    private _disposable: vscode.Disposable;
-    
-    constructor() 
-    {
-        let subscriptions: vscode.Disposable[] = [];
-        vscode.workspace.onDidChangeConfiguration(this.updateSettings, this, subscriptions);
-        this._disposable = vscode.Disposable.from(...subscriptions);
-        
-        this.updateSettings();
-    }
-   
-    
-    private updateSettings()
-    {
-        var settings = vscode.workspace.getConfiguration("insertnum");
-        if (!settings)
-        {
-            return;
-        }
-        
-        //TODO: format check.
-        this.formatStr = settings.get<string>("formatstr");
-        if (!this.formatStr) 
-        {
-            this.formatStr = "%d";
-        }
-        
-        this.start = settings.get<number>("start");
-        if (!this.start)
-         {
-            this.start = 0;
-        }
-        
-        this.step = settings.get<number>("step");
-        if (!this.step)
-         {
-            this.step = 1;
-        }
-        
-    }
-    
-    public dispose()
-    {
-        this._disposable.dispose();
-    }
+export class InsertSettings implements IInsertSettings {
+  public formatStr: string = "%d";
+  public start: number = 0;
+  public step: number = 1;
+
+  private _disposable: vscode.Disposable;
+
+  constructor() {
+    const subscriptions: vscode.Disposable[] = [];
+    vscode.workspace.onDidChangeConfiguration(this.updateSettings, this, subscriptions);
+    this._disposable = vscode.Disposable.from(...subscriptions);
+
+    this.updateSettings();
+  }
+
+  private updateSettings() {
+    const settings = vscode.workspace.getConfiguration("insertnum");
+    if (!settings) return;
+
+    this.formatStr = settings.get<string>("formatstr") || "%d";
+    this.start = settings.get<number>("start") || 0;
+    this.step = settings.get<number>("step") || 1;
+  }
+
+  public dispose() {
+    this._disposable.dispose();
+  }
 }
 
-/**
- * NumInserter
- */
-export class NumInserter 
-{
-    
-    private _settings : InsertSettngs;
-    
-    constructor(settings : InsertSettngs)
-    {
-        this._settings = settings;   
+export class NumInserter {
+  private _settings: InsertSettings;
+
+  constructor(settings: InsertSettings) {
+    this._settings = settings;
+  }
+
+  private insertNumbers(settings: IInsertSettings) {
+    const textEditor = vscode.window.activeTextEditor;
+    if (!textEditor) return;
+
+    let selections = textEditor.selections;
+
+    // Sort selections by their start position in the document
+    selections = selections.sort((a, b) => {
+        if (a.start.line === b.start.line) {
+            return a.start.character - b.start.character;
+        }
+        return a.start.line - b.start.line;
+    });
+
+    let currentNumber = settings.start;
+
+    textEditor.edit(builder => {
+      selections.forEach(selection => {
+        const formattedNumber = TSSprintf.sprintf(settings.formatStr, currentNumber);
+        currentNumber += settings.step;
+        builder.replace(selection, formattedNumber);
+      });
+    });
+  }
+
+  private parseUserInput(input: string): IInsertSettings | null {
+    if (!input) return null;
+
+    const defaultSettings: IInsertSettings = {
+      formatStr: this._settings.formatStr,
+      start: this._settings.start,
+      step: this._settings.step >= 1 ? this._settings.step : 1,
+    };
+
+    if (input.includes(":")) {
+      const params = input.split(":");
+
+      let start: string = params[0];
+      let step: string = String(this._settings.step >= 1 ? this._settings.step : 1);
+      let formatStr: string | number = String(this._settings.formatStr)
+      
+      if (params.length === 2) {
+        [start, step] = params;
+      } else if (params.length === 3) {
+        if (params[0].includes("%")) {
+          [formatStr, start, step] = params;
+        } else {
+          [start, step, formatStr] = params;
+        }
+      } else {
+        vscode.window.showErrorMessage("Wrong input.");
+        return null;
+      }
+
+      defaultSettings.formatStr = formatStr.includes("%") ? formatStr : `%0${parseInt(formatStr, 10)}d`;
+      defaultSettings.start = start.includes(".") ? parseFloat(start) : parseInt(start, 10);
+      defaultSettings.step = step.includes(".") ? parseFloat(step) : parseInt(step, 10);
+    } else {
+      if (input.includes('%')) {
+        defaultSettings.formatStr = input;
+      } else {
+        defaultSettings.step = parseInt(input, 10);
+      }
     }
-    
-    private insertNumbers(settings : IInsertSettngs)
-    {
-        let textEditor = vscode.window.activeTextEditor;
-        
-        const selections : vscode.Selection[] = textEditor.selections;
-        
-        const formatStr = settings.formatStr;
-        const start = settings.start;
-        const step = settings.step;
-        
-        let cur = start;
-        
-        textEditor.edit
-        (
-            function (builder) 
-            {
-                for (var i = 0; i < selections.length; i++) 
-                {
-                    let str = TSSprintf.sprintf(formatStr, cur);
-                    cur += step;
-                    
-                    builder.replace(selections[i], str);
-                }
-            }
-        ) 
+
+    return defaultSettings;
+  }
+
+  public async processInsert() {
+    const options: vscode.InputBoxOptions = {
+      value: `${this._settings.start}:${this._settings.step}:${this._settings.formatStr}`,
+      prompt: `Input format or start:step or start:step:format (default: ${this._settings.start}:${this._settings.step}:${this._settings.formatStr})`
+    };
+
+    const input = await vscode.window.showInputBox(options);
+    if (!input) {
+      return;
     }
-    
-    private parseUserInput(input : string) : IInsertSettngs
-    {
-        if (!input) {
-            return;
-        }
-        
-        let retSettings : IInsertSettngs = {
-            formatStr : "%d",
-            start : 0,
-            step : 1 
-        };
-        
-        //A simple check. :)
-        if (!input.includes("%")) {
-            vscode.window.showErrorMessage("Wrong format string.");
-            return;
-        }
-        
-        // eg... "%d:1:2"
-        if (input.includes(":")) {
-            
-            let paramList = input.split(":", 3);
-            
-            retSettings.formatStr = paramList[0];
-            
-            const strStart = paramList[1];
-            const strStep = paramList[2];
-            
-            if (strStart.includes(".")) {
-                retSettings.start = parseFloat(strStart);
-            } 
-            else{
-                retSettings.start = parseInt(strStart);
-            }
-            
-            if (strStep.includes(".")) {
-                retSettings.step = parseFloat(strStep);
-            } 
-            else{
-                retSettings.step = parseInt(strStep);
-            }
-        }
-        //eg... "%d"
-        else{
-            retSettings.formatStr = input;
-        }
-        
-        return retSettings;
+
+    const newSettings = this.parseUserInput(input.trim());
+    if (newSettings) {
+      this.insertNumbers(newSettings);
     }
-    
-    public processInsert()
-    {
-        //Input default numbers first.
-        this.insertNumbers(this._settings);
-        
-        
-        const opt : vscode.InputBoxOptions = {
-            placeHolder : "default: %d:0:1",
-            prompt : "Input format or format:start:step"
-        }
-        const input = vscode.window.showInputBox(opt);
-        
-        if (!input)
-        {
-            return;
-        }
-        
-        let parseUserInput = this.parseUserInput;
-        let insertNumbers = this.insertNumbers;
-        
-        let newSettings = null;
-        
-        input.then(function (val:string) {
-            
-            newSettings = parseUserInput(val);
-            
-            if (!newSettings) {
-                return;
-            }
-        
-            insertNumbers(newSettings);
-        })
-        
-    }
-    
-    
-    public dispose()
-    {
-        this._settings.dispose();
-    }
+  }
+
+  public dispose() {
+    this._settings.dispose();
+  }
 }
