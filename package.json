@@ -2,7 +2,7 @@
     "name": "insertnumbers-next",
     "displayName": "Insert Numbers Next",
     "description": "Insert increasing numbers (Forked)",
-    "icon": "images/icon.ico",
+    "icon": "images/icon.png",
     "version": "0.10.0",
     "publisher": "Mattickx",
     "license": "SEE LICENSE IN LICENSE.TXT",
