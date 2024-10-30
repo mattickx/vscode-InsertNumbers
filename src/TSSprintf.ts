@@ -29,7 +29,7 @@ export class TSSprintf {
         '_': ['', '_', '__', '___', '____', '_____', '______', '_______'],
     };
     
-    private static cache = {}
+    private static cache: { [key: string]: any } = {}
     
     constructor() {
     }
@@ -43,7 +43,7 @@ export class TSSprintf {
         return this.format(cache[key], args);
     }
     
-    private static format(parse_tree, argv) {
+    private static format(parse_tree: string | any[], argv: any[]) {
         var cursor = 0, tree_length = parse_tree.length, node_type = '', arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = '';
         for (i = 0; i < tree_length; i++) {
             node_type = this.get_type(parse_tree[i]);
@@ -149,8 +149,9 @@ export class TSSprintf {
         return output.join('');
     }
     
-    private static parse(fmt){
-        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0;
+    private static parse(fmt: string) {
+        var match: string[][] | string[] | null = null
+        var _fmt = fmt, parse_tree = [], arg_names = 0;
         while (_fmt) {
             if ((match = this.re.text.exec(_fmt)) !== null) {
                 parse_tree[parse_tree.length] = match[0];
@@ -161,7 +162,8 @@ export class TSSprintf {
             else if ((match = this.re.placeholder.exec(_fmt)) !== null) {
                 if (match[2]) {
                     arg_names |= 1;
-                    var field_list = [], replacement_field = match[2], field_match = [];
+                    var field_match: string[] | null = []
+                    var field_list = [], replacement_field = match[2];
                     if ((field_match = this.re.key.exec(replacement_field)) !== null) {
                         field_list[field_list.length] = field_match[1];
                         while ((replacement_field = replacement_field.substring(field_match[0].length)) !== '') {
@@ -179,6 +181,7 @@ export class TSSprintf {
                     else {
                         throw new SyntaxError("[sprintf] failed to parse named argument key");
                     }
+                    // @ts-ignore
                     match[2] = field_list;
                 }
                 else {
@@ -197,7 +200,7 @@ export class TSSprintf {
         return parse_tree;
     }
     
-    private static get_type(variable){
+    private static get_type(variable: any){
         if (typeof variable === 'number') {
             return 'number';
         }
@@ -209,10 +212,13 @@ export class TSSprintf {
         }
     }
     
-    private static str_repeat(input, multiplier) {
-        if (multiplier >= 0 && multiplier <= 7 && this.preformattedPadding[input]) {
-            return this.preformattedPadding[input][multiplier];
+    private static str_repeat(input: string | number | undefined, multiplier: number) {
+        if (multiplier >= 0 && multiplier <= 7 && this.preformattedPadding[input as keyof typeof this.preformattedPadding]) {
+            return this.preformattedPadding[input as keyof typeof this.preformattedPadding][multiplier];
         }
-        return Array(multiplier + 1).join(input);
+        if (input) {
+          return Array(multiplier + 1).join(String(input));
+        }
+        return ''
     }
 }

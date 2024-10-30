@@ -1,4 +1,8 @@
 # README
+
+## Forked from:
+* [GitHub](https://github.com/Inori/vscode-InsertNumbers/)
+
 ## Insert Numbers for Visual Studio Code
 An extension to insert increasing numbers.
 
@@ -13,31 +17,18 @@ The format of the inserted numbers is controlled by a C-Style format string usin
 
 There are two ways to change the default format string.
 * You can change your `settings.json` file to modify the default value:
-
     ![settings](images/settings.png)
-    
-* You can input format string in the `InputBox` each time you toggle insert. The format string can be a single string like `%02d`:
 
-    ![dec format](images/dec.gif)
+* The format string can be a single string like :
+  `%d`: inserts the number only (default)
+  `%02d` or `%08d` etc.
 
-    or with start number and step, like `%08X:0:4`:
-
-    ![input format](images/hex.gif)
-
-    ### Note
-    * Do not input more than one type specifier in a format string. If you want to input more than one number, you can do it another time.
-    * Do not input `':'` in format string.
+### Note
+* Do not input more than one type specifier in a format string. If you want to input more than one number, you can do it another time.
+* Do not input `:` in format string.
+* If filling in a format string, the format string should include a `%`.
 
 ## Thanks
 * [sprintf.js](https://github.com/alexei/sprintf.js)
-
-## For more information or bug reports
-* [GitHub](https://github.com/Inori/vscode-InsertNumbers/)
-
-## Changes
-* Version 0.9.0: April 29, 2016
-
-    First version
-
 
 *Enjoy!*
